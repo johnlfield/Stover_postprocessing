@@ -126,13 +126,20 @@ df
 # -
 
 # ## Pivot
-# This operation re-shapes the data such that the results for different management treatments (e.g., G, G25S, etc.) are shown in different columns instead of different rows. 
+# This operation re-shapes the data such that the results for different management treatments (e.g., G, G25S, etc.) are shown in different columns instead of different rows. After the pivot step, we compute SOC and N2O differences between treatments. 
 
 pivoted_df = df.pivot(index='fips', columns='stover_removal')
 pivoted_df
 
 pivoted_df.index
-pivoted_df['stover_yield_Mg_ha-1']['G25S']
+pivoted_df['dSOC_G25S_relative'] = pivoted_df['dSOC_MgC_ha-1']['G25S'] - pivoted_df['dSOC_MgC_ha-1']['G']
+pivoted_df['dSOC_G50S_relative'] = pivoted_df['dSOC_MgC_ha-1']['G50S'] - pivoted_df['dSOC_MgC_ha-1']['G']
+pivoted_df['dSOC_G75S_relative'] = pivoted_df['dSOC_MgC_ha-1']['G75S'] - pivoted_df['dSOC_MgC_ha-1']['G']
+pivoted_df['dN2O_G25S_relative'] = pivoted_df['N2O_MgN_ha-1']['G25S'] - pivoted_df['N2O_MgN_ha-1']['G']
+pivoted_df['dN2O_G50S_relative'] = pivoted_df['N2O_MgN_ha-1']['G50S'] - pivoted_df['N2O_MgN_ha-1']['G']
+pivoted_df['dN2O_G75S_relative'] = pivoted_df['N2O_MgN_ha-1']['G75S'] - pivoted_df['N2O_MgN_ha-1']['G']
+pivoted_df['dSOC_MgStover'] = pivoted_df['dSOC_G25S_relative'] / pivoted_df['stover_yield_Mg_ha-1']['G25S']
+pivoted_df
 
 # ## Remaining operations
 # * compute net CO2e biogenic GHG footprint
@@ -149,10 +156,8 @@ init_notebook_mode(connected=True)
 scope = ['ND', 'SD', 'NE', 'KS', 'MO', 'IA', 'MN', 'WI', 'IL', 'KY', 'IN', 'MI', 'OH', 'PA', 'WV', 'MD', 'DE',
          'NY', 'TN', 'AR', 'OK', 'VA', 'NC']
 
-def fips_mapping(df, title, variable, treatment, legend_title, linspacing, divergent=False, reverse=False):
-
-    data = pivoted_df[variable][treatment]
-    
+def fips_mapping(fips, data, title, legend_title, linspacing, divergent=False, reverse=False):
+   
     # use 'linspacing' parameters to create a bin list, and specify rounding if values are small-ish
     bin_list = np.linspace(linspacing[0], linspacing[1], linspacing[2]).tolist()
     rounding = True
@@ -165,7 +170,7 @@ def fips_mapping(df, title, variable, treatment, legend_title, linspacing, diver
 
     if divergent:
         # convert matplotlib (r, g, b, x) tuple color format to 'rgb(r, g, b)' Plotly string format
-        cmap = get_cmap('RdBu')  # or RdYlBu for better differentiation vs. missing data squares in tiling map
+        cmap = plt.get_cmap('RdBu')  # or RdYlBu for better differentiation vs. missing data squares in tiling map
         custom_rgb_cmap = [cmap(x) for x in np.linspace(0, 1, (linspacing[2] + 1))]
         custom_plotly_cmap = []
         for code in custom_rgb_cmap:
@@ -177,7 +182,7 @@ def fips_mapping(df, title, variable, treatment, legend_title, linspacing, diver
         kwargs['state_outline'] = {'color': 'rgb(100,100,100)', 'width': 1.0}
         kwargs['colorscale'] = custom_plotly_cmap
 
-    fig = ff.create_choropleth(fips=data.index.tolist(),
+    fig = ff.create_choropleth(fips=fips.tolist(),
                                values=data.tolist(),
                                binning_endpoints=bin_list,
                                round_legend_values=rounding,
@@ -192,6 +197,8 @@ def fips_mapping(df, title, variable, treatment, legend_title, linspacing, diver
 
 # -
 
-fips_mapping(pivoted_df, "Stover yield @ 25% removal rate", 'stover_yield_Mg_ha-1', 'G25S', '(Mg ha-1)', (2, 4, 21))
+fips_mapping(pivoted_df.index, pivoted_df['stover_yield_Mg_ha-1']['G25S'], "Stover yield @ 25% removal rate", '(Mg ha-1)', (2, 4, 21))
+
+fips_mapping(pivoted_df.index, pivoted_df['dSOC_MgStover'], "SOC penalty per mass of stover harvested", '(Mg C (Mg biomass)-1)', (-.05, 0.05, 41), divergent=True)
 
 
